@@ -4,16 +4,27 @@ jobs:
   lint_python:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-      - run: pip install bandit black codespell flake8 isort mypy pytest pyupgrade
-      - run: bandit -r . || true
-      - run: black --check . || true
-      - run: codespell --quiet-level=2 || true  # --ignore-words-list="" --skip=""
-      - run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-      - run: isort --check-only --profile black . || true
-      - run: pip install -r requirements.txt || true
-      - run: mypy --ignore-missing-imports . || true
-      - run: pytest . || true
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: 3.13
+          allow-prereleases: true
+      - run: pip install --upgrade pip ruff setuptools wheel
+      - name: "Ruff: Show stopper (must-fix) issues"
+        run: ruff check --select=E9,F63,F7,F82,PLE,YTT
+      - name: "Ruff: All issues"
+        run: ruff check --exit-zero --select=ALL --statistics --target-version=py38 .
+      - run: ruff format
+      - name: "Ruff: All fixable (ruff --fix) issues"
+        run: ruff check --exit-zero --select=ALL --ignore=ANN204,COM812,ERA001,RSE102
+                  --statistics --target-version=py38 . || true | grep "\[\*\]"      
+      - run: pip install codespell mypy pytest safety
+      - run: codespell --quiet-level=1  # --ignore-words-list="" --skip="*.css,*.js,*.lock"
+      - run: pip install -r requirements.txt || pip install --editable . || pip install . || true
+      - run: mkdir --parents --verbose .mypy_cache
+      - run: mypy --ignore-missing-imports --install-types --non-interactive .
       - run: pytest --doctest-modules . || true
-      - run: shopt -s globstar && pyupgrade --py36-plus **/*.py || true
+      - run: pytest . || true
+      - run: pip --version
+      - run: python -m pip --version
+      - run: safety check || true
